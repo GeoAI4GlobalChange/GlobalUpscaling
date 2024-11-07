@@ -16,11 +16,11 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 
 
-depths=[12]
+depths=[12]#time lag (weekly),
 data_source='era5'
-for depth in depths:
+for depth in depths:# depths=sequence length or maximum time lag
     batch_size = 32 # number of sub-samples that used to calculate the loss
-    prediction_horizon = 0# leading time
+    prediction_horizon = 0 # leading time
     test_precent=0.1# datasets include train, validate, and test
     site_types=['All']
     df_result=pd.DataFrame(columns=['model','wetlandtype','experiment_id','mae','r','r2','GPP','PA','TS','TA','P','WS','SC','SWC','T_CLAY', 'T_GRAVEL',  'T_SAND', 'T_SILT',  'T_PH_H2O'])
@@ -34,12 +34,12 @@ for depth in depths:
         target = 'FCH4_weekly'
         target_cols=[
             'GPP','PA','TS','TA','P','WS','SC','SWC','T_CLAY', 'T_GRAVEL',  'T_SAND', 'T_SILT',  'T_PH_H2O']
-        train_datasets={}#train dataset, wetland type: ndarray
-        val_datasets={}#validate dataset
-        test_datasets={}#test dataset
-        site_type_dict={}# save site name: wetlan type
-        df=pd.read_csv(r'./data/site_global/site_location_global.csv')# path of site information
-        df = df[((df['LAT'] <= 23)&(df['LAT'] >=- 23))]
+        train_datasets={} #train dataset, wetland type: ndarray
+        val_datasets={} #validate dataset
+        test_datasets={} #test dataset
+        site_type_dict={} # save site name: wetland type
+        df=pd.read_csv(r'./data/site_global/site_location_global.csv') # path of site information
+        df = df[((df['LAT'] >= 23)|(df['LAT'] <=- 23))]
         df=df[['ID','Type_all']].values
 
         for idx in range(df.shape[0]):
@@ -50,7 +50,7 @@ for depth in depths:
         for file_idx in range(len(df)):
             site_name=df[file_idx,0]
             print(site_name)
-            temp_type=site_type_dict[site_name]# get wetland type for each site according to its name
+            temp_type=site_type_dict[site_name] # get wetland type for each site according to its name
             if temp_type in site_types:
                 file_path=dir+site_name+'_gosif_era5_soil.csv'
                 data = pd.read_csv(file_path)
@@ -111,19 +111,31 @@ for depth in depths:
                         val_datasets[temp_type]['Y'] = np.concatenate( [val_datasets[temp_type]['Y'], y_train1[validate_idxs]], axis=0)
         print(train_datasets.keys())
 
+        causal_punish_para = 1 * pow(10, -2)
         device = 'cpu'
+        causal_dict_1 = {}
+        dir_causal_stren = f'./data/site_global/data/pcmci_results/'# load causality
+        for temp_type in site_types:
+            causal_dict_1[temp_type]=np.load(dir_causal_stren + f'{data_source}_{temp_type}_{depth}.npy',allow_pickle=True).astype(np.float32)
 
-        with open(f"./data/chamber_model_input/{data_source}_input_chamber_{depth}_Tropical.pkl.pkl", "rb") as tf:
+
+        with open(f"./data/chamber_model_input/{data_source}_input_chamber_{depth}.pkl", "rb") as tf:
             chamber_input=pickle.load(tf)
-        with open(f"./data/chamber_model_input/{data_source}_output_chamber_{depth}_Tropical.pkl", "rb") as tf:
+        with open(f"./data/site_global/data/chamber_model_input/{data_source}_output_chamber_{depth}.pkl", "rb") as tf:
             chamber_output=pickle.load(tf)
-        with open(f"./data/chamber_model_input/{data_source}_ID_cleanchamber_{depth}_Tropical.pkl", "rb") as tf:
+        with open(f"./data/chamber_model_input/{data_source}_ID_cleanchamber_{depth}.pkl", "rb") as tf:
             chamber_ID=pickle.load(tf)
-        df_chamber=pd.read_csv(f'./data/site_global/All_chamber_tropic.csv')
-        df_chamber=df_chamber[((df_chamber['Lats']<=23)&(df_chamber['Lats']>=-23))]
-
+        df_chamber=pd.read_csv(f'./data/site_global/All_chamber.csv')
 
         for type in site_types:
+            causal_stren = causal_dict_1[type]
+            causal_stren_raw = causal_stren[np.newaxis, :]
+            causal_stren = np.repeat(causal_stren_raw, batch_size, axis=0)
+            causal_stren = causal_stren / np.sum(causal_stren, axis=1, keepdims=True)
+            causal_stren = torch.Tensor(causal_stren)
+            weights = Variable(causal_stren, requires_grad=False).to(device=device)
+
+
             x_chamber=chamber_input[type]
             y_chamber=chamber_output[type]
             x_chamber=np.vstack(x_chamber)
@@ -142,7 +154,6 @@ for depth in depths:
             x_all = np.concatenate((x_all, x_chamber), axis=0)
             y_all = np.concatenate((y_all, y_chamber), axis=0)
 
-
             print(type,x_all.shape[0])
             x_means=np.nanmean(x_all.reshape((-1,x_all.shape[2])),axis=0)
             x_std=np.nanstd(x_all.reshape((-1,x_all.shape[2])),axis=0)
@@ -150,10 +161,10 @@ for depth in depths:
             y_std = np.nanstd(y_all, axis=0)
 
             para_mean_std_dir = f'./data/site_global/data/ML_results/'
-            np.save(para_mean_std_dir+f'{data_source}_x_mean_{depth}_{type}_{seed}_Tropical.npy',x_means)
-            np.save(para_mean_std_dir + f'{data_source}_x_std_{depth}_{type}_{seed}_Tropical.npy', x_std)
-            np.save(para_mean_std_dir + f'{data_source}_y_mean_{depth}_{type}_{seed}_Tropical.npy', y_means)
-            np.save(para_mean_std_dir + f'{data_source}_y_std_{depth}_{type}_{seed}_Tropical.npy', y_std)
+            np.save(para_mean_std_dir+f'{data_source}_x_mean_{depth}_{type}_{seed}.npy',x_means)
+            np.save(para_mean_std_dir + f'{data_source}_x_std_{depth}_{type}_{seed}.npy', x_std)
+            np.save(para_mean_std_dir + f'{data_source}_y_mean_{depth}_{type}_{seed}.npy', y_means)
+            np.save(para_mean_std_dir + f'{data_source}_y_std_{depth}_{type}_{seed}.npy', y_std)
 
             x_train=(x_train-x_means)/(x_std+pow(10,-6))
             y_train=(y_train-y_means)/(y_std+pow(10,-6))
@@ -188,12 +199,11 @@ for depth in depths:
 
             device='cpu'
             him_dim=4 #hiden state vector dimention 4
-            lr=0.01
             model = IMVFullLSTM(x_train.shape[2], 1, him_dim,device=device,dropout=0.1).to(device=device)
-            opt = torch.optim.Adam(model.parameters(), lr=lr,)
+            opt = torch.optim.Adam(model.parameters(), lr=0.01,)
             epoch_scheduler = torch.optim.lr_scheduler.StepLR(opt, 1, gamma=0.9)
 
-            opt_chamber = torch.optim.Adam(model.parameters(), lr=lr, )
+            opt_chamber = torch.optim.Adam(model.parameters(), lr=0.01, )
             epoch_scheduler_chamber = torch.optim.lr_scheduler.StepLR(opt_chamber, 1, gamma=0.9)
 
 
@@ -203,8 +213,6 @@ for depth in depths:
             min_val_loss = 9999
             counter = 0
             para_path = f"./data/site_global/data/ML_results/para/{data_source}_CausalML_{type}_{him_dim}_seed{seed}_lag{depth}.pt"
-            para_path_save=f"./data/site_global/data/ML_results/para/{data_source}_CausalML_{type}_{him_dim}_seed{seed}_lag{depth}_Tropical.pt"
-
             if os.path.exists(para_path):
                 model.load_state_dict(torch.load(para_path))
 
@@ -220,6 +228,14 @@ for depth in depths:
                     y_pred, alphas, betas = model(batch_x)
                     y_pred = y_pred.squeeze(1)
                     l = loss(y_pred, batch_y)
+                    causal_stren = np.repeat(causal_stren_raw, batch_x.size(0), axis=0)
+                    causal_stren = causal_stren / np.sum(causal_stren, axis=1, keepdims=True)
+                    causal_stren = torch.Tensor(causal_stren)
+                    weights_temp = Variable(causal_stren, requires_grad=False).to(device=device)
+                    betas = betas.squeeze(2)
+                    betas=betas[:,:weights_temp.size(dim=1)]
+                    causal_loss = F.kl_div(betas.log(), weights_temp, None, None, 'sum')
+                    l = l + causal_punish_para * causal_loss
                     l.backward()
                     mse_train += l.item() * batch_x.shape[0]
                     opt.step()
@@ -286,7 +302,7 @@ for depth in depths:
                 if min_val_loss > mse_val ** 0.5:
                     min_val_loss = mse_val ** 0.5
                     print("Saving...")
-                    torch.save(model.state_dict(), para_path_save)
+                    torch.save(model.state_dict(), para_path)
                     counter = 0
                 else:
                     counter += 1
@@ -330,7 +346,7 @@ for depth in depths:
                 x_chamber = chamber_input[type]
                 y_chamber = chamber_output[type]
                 IDs=chamber_ID[type]
-                for chamber_idx in chamber_test_idxs:
+                for chamber_idx in range(len(x_chamber)):
                     x_chamber_data = x_chamber[chamber_idx]
                     ID=IDs[chamber_idx]
                     x_nan_num = np.sum(np.isnan(x_chamber_data.reshape(-1)))
@@ -377,8 +393,9 @@ for depth in depths:
             df_result.loc[df_idx] = temp_result
             df_idx += 1
             print(type,mse, mae,stats.pearsonr(true, preds)[0])
+
     df_chamber.to_csv(
-        f'./data/site_global/data/ML_results/{data_source}_chamber_CausalML_prediction_lag{depth}_Tropical.csv')
+        f'./data/site_global/data/ML_results/{data_source}_chamber_CausalML_prediction_lag{depth}.csv')
 
     df_final=pd.DataFrame(columns=['model','wetlandtype','mae_mean','r_mean','r2_mean','mae_std','r_std','r2_std'])
     df_idx_stats=0
@@ -389,5 +406,6 @@ for depth in depths:
         df_final.loc[df_idx_stats] = ['imv', type, np.mean(mae), np.mean(r),np.mean(r2), np.std(mae), np.std(r), np.std(r2)]
         df_idx_stats += 1
 
-    df_final.to_csv(f'./data/site_global/data/ML_results/{data_source}_CausalML_result_mean_std_lag{depth}_Tropical.csv')
-    df_result.to_csv(f'./data/site_global/data/ML_results/{data_source}_CausalML_var_attn_weight_lag{depth}_Tropical.csv')
+    df_final.to_csv(f'./data/site_global/data/ML_results/{data_source}_CausalML_result_mean_std_lag{depth}.csv')
+    df_result.to_csv(f'./data/site_global/data/ML_results/{data_source}_CausalML_var_attn_weight_lag{depth}.csv')
+
