@@ -2,7 +2,7 @@
 The repository contains codes of upscaling and analyzing wetland methane emissions at the global scale. Specifically, we used causality guided machine learning models, eddy covariance and chamber measurements of CH4 fluxes, and environmental predictors (including soil temperature, air temperature, gross primary productivity, air pressure, precipitation, wind speed, snow cover, soil water content, soil PH, and soil texture) to  upscale global wetland CH4 emissions from 2003 to 2023. We then identified dominant controls on wetland CH4 emission trends regionally and globally using statistical attribution models.  
 ## Code introduction
 1)	Causality-guided machine learning models  
-In the ”Causal_ML_Demo.py” file, it contains code to train causality-guided machine learning models.    
+In the ”model_demo.py” file, it contains code to train causality-guided machine learning models.    
 2) Quantifying dominant controls on wetland CH4 emission trends  
 In the”methane_analysis_demo.py” file, run the “grid_trend_analysis” function.  
 
