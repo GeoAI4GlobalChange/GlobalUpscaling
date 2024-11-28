@@ -12,7 +12,7 @@ For the input drivers, GPP was obtained from the GOSIF dataset, which is availab
 For more datasets used for uncertainty analysis, please see the correponding paper.
 
 ## Computing environment  
-1) Packages required: netCDF4, pandas, numpy, scipy, pytorch, scikit-learn, pickle, statsmodels  
+1) Packages required: netCDF4, pandas, numpy, scipy, pytorch, scikit-learn, pickle  
 2) Anaconda is recommended to install all the packages required by runing: Conda install list_of_packages  
 3) The code has been tested on: Windows 11 version 23H2 with Python 3.8.19 and Intel(R)Core(TM)i9-9900K CPU    
 
