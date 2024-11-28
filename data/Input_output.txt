@@ -1,0 +1,5 @@
+The original eddy covariance methane flux datasets are from FLUXNET-CH4 (https://fluxnet.org/data/fluxnet-ch4-community-product/) and AmeriFlux (https://ameriflux.lbl.gov/sites/site-search/). The chamber datasets we compiled will be publicly available along with our paper.    
+For the input drivers, GPP was obtained from the GOSIF dataset, which is available at https://globalecology.unh.edu/data/GOSIF-GPP.html.  
+Other variables (soil temperature, air temperature, air pressure, precipitation, wind speed, snow cover, and soil water content) were obtained from ERA5-land datasets,  
+which are available at (https://cds.climate.copernicus.eu/datasets/derived-era5-land-daily-statistics).  
+Please read the corresponding paper for other datasets used for uncertainty analysis.  
