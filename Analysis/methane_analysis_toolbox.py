@@ -2,13 +2,12 @@ import pandas as pd
 import numpy as np
 from netCDF4 import Dataset
 from scipy import signal
-import pingouin as pg
 import statsmodels.api as sm
 import copy
-def FCH4Data_load(dir_fch4,max_lat_idx):#load upscaled FCH4 dataset
+def FCH4Data_load(dir_fch4,min_lat_idx,max_lat_idx):#load upscaled FCH4 dataset
     nc = Dataset(dir_fch4, 'r')
-    fch4_var = nc.variables['FCH4'][-1, 52:, :max_lat_idx].astype(np.float32)
-    lats = nc.variables['latitude'][:max_lat_idx]
+    fch4_var = nc.variables['FCH4'][-1, 52:, min_lat_idx,:max_lat_idx].astype(np.float32)
+    lats = nc.variables['latitude'][min_lat_idx,:max_lat_idx]
     lons = nc.variables['longitude'][:]
     nc.close()
     return fch4_var,lats,lons
@@ -27,13 +26,13 @@ def FCH4_anomaly_yearly(fch4_var,lats,lons):#calculate FCH4 anomaly in yearly sc
     fch4_var_anomaly = fch4_var - fch4_var_mean
     return fch4_var_anomaly
 
-def ForcingData_load(forcing_file_list,forcing_vars,dir_forcing,max_lat_idx,lats,lons):#obtain forcing datasets including TS, TA, SC, PA, P, SWC, WS, and GPP
+def ForcingData_load(forcing_file_list,forcing_vars,dir_forcing,min_lat_idx,max_lat_idx,lats,lons):#obtain forcing datasets including TS, TA, SC, PA, P, SWC, WS, and GPP
     start = True
     for file in forcing_file_list:# load each nc file of different input forcing
         forcing_var = forcing_vars[forcing_file_list.index(file)]
-        nc_file = dir_forcing + f'ecmwf_weekly_0.5degree_unified_2000-2021_{file}.nc'
+        nc_file = dir_forcing + f'ecmwf_weekly_0.5degree_unified_2000-2023_{file}.nc'
         nc = Dataset(nc_file, 'r')
-        temp_var = nc.variables[forcing_var][52 * 2:, :max_lat_idx].astype(np.float32)  # (start from the year of 2002)
+        temp_var = nc.variables[forcing_var][52 * 3:, min_lat_idx:max_lat_idx].astype(np.float32)  # (start from the year of 2002)
         nc.close()
         temp_var = temp_var[np.newaxis]
         if start:
@@ -43,9 +42,9 @@ def ForcingData_load(forcing_file_list,forcing_vars,dir_forcing,max_lat_idx,lats
             all_forcing_vars = np.concatenate((all_forcing_vars, temp_var), axis=0)
         print('loading', file)
     # obatain datsets of GPP
-    nc_file = dir_forcing + f'GOSIF_GPP_05degree_weekly_2001-2021.nc'
+    nc_file = dir_forcing + f'GOSIF_GPP_05degree_weekly_2001-2023.nc'
     nc = Dataset(nc_file, 'r')
-    temp_var = nc.variables['GPP'][52:, :max_lat_idx].astype(np.float32)# (start from the year of 2002)
+    temp_var = nc.variables['GPP'][52*2:, min_lat_idx:max_lat_idx].astype(np.float32)# (start from the year of 2002)
     nc.close()
     temp_var = temp_var[np.newaxis]
     # combine GPP with other variables
@@ -65,29 +64,6 @@ def Forcing_anomaly_yearly(all_forcing_vars,lats,lons):#calculate forcing anomal
     all_forcing_vars_anomaly = all_forcing_vars - all_forcing_vars_mean
     return all_forcing_vars_anomaly
 
-def Par_cor(forcing_vars,lats,lons,all_forcing_vars_anomaly,fch4_var_anomaly,all_vars,target_var): #calculate partial correlation between FCH4 and its drivers
-    partial_result = np.full((len(forcing_vars), len(lats), len(lons)), np.nan)
-    for lat_idx in range(len(lats)):
-        for lon_idx in range(len(lons)):
-            print(lat_idx, lon_idx)
-            if np.sum(np.isnan(all_forcing_vars_anomaly[:, :, lat_idx, lon_idx].reshape(-1))) == 0:
-                if np.sum(np.isnan(fch4_var_anomaly[:, lat_idx, lon_idx])) == 0:
-                    input_series = all_forcing_vars_anomaly[:, :, lat_idx, lon_idx]
-                    target_series = fch4_var_anomaly[:, lat_idx, lon_idx]
-                    target_series = target_series[np.newaxis]
-                    data = np.concatenate((input_series, target_series), axis=0)
-                    data = data.transpose((1, 0))
-                    data = signal.detrend(data, axis=0)
-                    if np.sum(np.isnan(data.reshape(-1))) == 0:
-                        df = pd.DataFrame(data, columns=all_vars)
-                        for temp_var in forcing_vars:
-                            source_var = temp_var
-                            condition_vars = list(set(forcing_vars).difference(set([source_var])))
-                            res = pg.partial_corr(data=df, x=source_var, y=target_var, covar=condition_vars).round(3)
-                            r = res[['r', 'p-val']].values
-                            r, p = r[0, 0], r[0, 1]
-                            partial_result[forcing_vars.index(temp_var), lat_idx, lon_idx] = r if p < 0.05 else np.nan
-    return partial_result
 
 def LinearReg_model(forcing_vars,lats,lons,fch4_var_anomaly,all_forcing_vars_anomaly,all_vars,forcing_group):#build linear regression models to calculate FCH4 driven by different variables in each grid cell
     corr_result = np.full((len(forcing_vars), len(lats), len(lons)), np.nan)
