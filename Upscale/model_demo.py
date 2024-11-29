@@ -14,7 +14,7 @@ def model_training(depths, batch_size, prediction_horizon, test_precent, seed_nu
     for depth in depths:
         # Initialize dataframe 'df_result' to save the results, including MAE, Pearson R, R^2,and feature importance of 'GPP','PA','TS','TA','P','WS','SC','SWC'.
         df_result = pd.DataFrame(
-            columns=['model', 'wetlandtype', 'experiment_id', 'mae', 'r', 'r2'])
+            columns=['wetlandtype', 'experiment_id', 'mae', 'r', 'r2'])
         df_idx=0
         for seed in range(seed_num):
             random.seed(seed)
@@ -92,22 +92,22 @@ def model_training(depths, batch_size, prediction_horizon, test_precent, seed_nu
                 mae = mean_absolute_error(true, preds)
                 r=stats.pearsonr(true, preds)[0]
                 r2=r2_score(true, preds)
-                temp_result = ['causal_ml', type, seed, mae, r,r2]
+                temp_result = [type, seed, mae, r,r2]
                 df_result.loc[df_idx] = temp_result
                 df_idx += 1
                 print(type,mse, mae,stats.pearsonr(true, preds)[0])
         ###############################################################
-        df_final=pd.DataFrame(columns=['model','wetlandtype','mae_mean','r_mean','r2_mean','mae_std','r_std','r2_std'])
+        df_final=pd.DataFrame(columns=['wetlandtype','mae_mean','r_mean','r2_mean','mae_std','r_std','r2_std'])
         df_idx_stats=0
         for type in site_types:
             mae=df_result[(df_result['wetlandtype']==type)]['mae'].values
             r=df_result[(df_result['wetlandtype']==type)]['r'].values
             r2=df_result[(df_result['wetlandtype']==type)]['r2'].values
-            df_final.loc[df_idx_stats] = ['causal_ml', type, np.mean(mae), np.mean(r),np.mean(r2), np.std(mae), np.std(r), np.std(r2)]
+            df_final.loc[df_idx_stats] = [type, np.mean(mae), np.mean(r),np.mean(r2), np.std(mae), np.std(r), np.std(r2)]
             df_idx_stats += 1
         # obtain and save the results
         df_final.to_csv(f'{results_dir}{data_source}_CausalConstrained_upscale_ml_mean_std_lag{depth}_20_test.csv')
-        df_result.to_csv(f'{results_dir}{data_source}_CausalConstrained_upscale_ml_var_attn_weight_lag{depth}_20_test.csv')
+        df_result.to_csv(f'{results_dir}{data_source}_CausalConstrained_upscale_ml_performance_lag{depth}_20_test.csv')
 
 if __name__=='__main__':
     depths = [12]  # maximum time lags
