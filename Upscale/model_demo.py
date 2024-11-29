@@ -124,7 +124,7 @@ if __name__=='__main__':
     dir_causal_stren = f'./PCMCI_causality/'  # path of causality strength between FCH4 and its drivers
     chamber_dir = './chamber_data/'  # path of chamber datasets (including FCH4 and its drivers)
     para_dir = './para/'  # path to save the model parameters
-    results_dir = './Expected_output/'  # path to save the results
+    results_dir = './output/'  # path to save the results
     #train the causal ML model and save the results
     model_training(depths, batch_size, prediction_horizon, test_precent, seed_num, data_source, site_types, target,
                    target_cols, dir, path_site_info, dir_causal_stren, chamber_dir, para_dir, results_dir)
